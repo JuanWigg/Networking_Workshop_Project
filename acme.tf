@@ -61,7 +61,7 @@ resource "aws_default_route_table" "tablaMainAcme" {
 
     route{
       cidr_block = "10.0.0.0/16"
-      gateway_id = aws_network_interface.multiserver_nic1
+      network_interface_id = aws_network_interface.multiserver_nic1.id
   }
 
   route{
@@ -76,23 +76,26 @@ resource "aws_default_route_table" "tablaMainAcme" {
 
 # Tablas
 resource "aws_route_table" "tablaServiciosAcme" {
-    route{
+  vpc_id = aws_vpc.vpc-acme.id
+  route{
         cidr_block = "0.0.0.0/0"
-        gateway_id = aws_network_interface.proxy_rev_nic2
-    }
+        network_interface_id = aws_network_interface.proxy_rev_nic2.id
+  }
     tags = {
     Name = "ServiciosACME"
   }
 }
 
 resource "aws_route_table" "tablaInternaAcme" {
+  vpc_id = aws_vpc.vpc-acme.id
+  
     route{
         cidr_block = "0.0.0.0/0"
-        gateway_id = aws_network_interface.multiserver_nic2.id
+        network_interface_id = aws_network_interface.multiserver_nic2.id
     }
     route{
         cidr_block = "10.0.0.0/16"
-        gateway_id = aws_network_interface.multiserver_nic2.id
+        network_interface_id = aws_network_interface.multiserver_nic2.id
     }
     tags = {
     Name = "InternaACME"
@@ -111,7 +114,7 @@ resource "aws_route_table_association" "tablaServiciosAsociation" {
 }
 
 resource "aws_route_table_association" "tablaInternaAsociation" {
-  subnet_id      = aws_subnet.ACMEPublica.id
+  subnet_id      = aws_subnet.ACMEInterna.id
   route_table_id = aws_route_table.tablaInternaAcme.id
 }
 
@@ -128,7 +131,7 @@ resource "aws_security_group" "proxyrev_acme_sg"{
     from_port = 22
     to_port = 22
     protocol = "tcp"
-    cidr_blocks = "0.0.0.0/0"
+    cidr_blocks = ["0.0.0.0/0"]
   }
   ingress {
     description = "HTTPS"
@@ -172,13 +175,16 @@ resource "aws_security_group" "proxyrev_acme_sg"{
 
 ## Multiserver
 resource "aws_security_group" "multiserver_sg"{
+  name        = "Multiserver Firewall"
+  description = "Firewall para el Multiserver"
+  vpc_id      = aws_vpc.vpc-acme.id
   #Reglas de entrada
   ingress {
     description = "SSH publico"
     from_port = 22
     to_port = 22
     protocol = "tcp"
-    cidr_blocks = "0.0.0.0/0"
+    cidr_blocks = ["0.0.0.0/0"]
   }
   ingress {
     description = "Proxy"
@@ -394,7 +400,7 @@ resource "aws_network_interface" "prod02_nic1" {
   security_groups = [aws_security_group.prod_sg.id]
 }
 resource "aws_network_interface" "prod02_nic2" {
-  subnet_id = aws_subnet.ACMEInterna
+  subnet_id = aws_subnet.ACMEInterna.id
   private_ips = ["172.16.4.11"]
   security_groups = [aws_security_group.prod_sg.id]
 }
@@ -415,15 +421,15 @@ resource "aws_eip" "proxyrev_eip"{
   vpc = true
   network_interface = aws_network_interface.proxy_rev_nic1.id
   associate_with_private_ip = "172.16.0.6"
-  depends_on = aws_internet_gateway.gw_acme
+  depends_on = [aws_internet_gateway.gw_acme]
 }
 
 #Multiserver
-resource "aws_eip" "proxyrev_eip"{
+resource "aws_eip" "multiserver_eip"{
   vpc = true
   network_interface = aws_network_interface.multiserver_nic1.id
   associate_with_private_ip = "172.16.0.7"
-  depends_on =  aws_internet_gateway.gw_acme
+  depends_on =  [aws_internet_gateway.gw_acme, aws_network_interface.multiserver_nic1]
 
 }
 
@@ -446,6 +452,9 @@ resource "aws_instance" "ec2_proxy_rev"{
     network_interface_id = aws_network_interface.proxy_rev_nic2.id
     
   }
+  tags = {
+    Name = "ProxyRev"
+  }
 }
 
 # Multiserver
@@ -464,6 +473,9 @@ resource "aws_instance" "ec2_multiserver"{
     device_index = 1
     network_interface_id = aws_network_interface.multiserver_nic2.id
     
+  }
+  tags = {
+    Name = "Multiserver"
   }
 }
 
@@ -484,6 +496,9 @@ resource "aws_instance" "ec2_prod01"{
     network_interface_id = aws_network_interface.prod01_nic2.id
     
   }
+  tags = {
+    Name = "Prod01"
+  }
 }
 
 # Prod02
@@ -503,6 +518,9 @@ resource "aws_instance" "ec2_prod02"{
     network_interface_id = aws_network_interface.prod02_nic2.id
     
   }
+  tags = {
+    Name = "Prod02"
+  }
 }
 
 
@@ -517,5 +535,8 @@ resource "aws_instance" "ec2_db01"{
     device_index = 0
     network_interface_id = aws_network_interface.db01_nic1.id
 
+  }
+  tags = {
+    Name = "DB"
   }
 }
