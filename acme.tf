@@ -4,7 +4,6 @@ provider "aws" {
     shared_credentials_file = "/Users/Piche/.aws/credentials"
 }
 
-
 #Defino primero la VPC 
 resource "aws_vpc" "vpc-acme"{
     cidr_block = "172.16.0.0/16"
@@ -359,11 +358,13 @@ resource "aws_network_interface" "proxy_rev_nic1" {
   subnet_id = aws_subnet.ACMEPublica.id
   private_ips = ["172.16.0.6"]
   security_groups = [aws_security_group.proxyrev_acme_sg.id]
+  source_dest_check = false
 }
 resource "aws_network_interface" "proxy_rev_nic2" {
   subnet_id = aws_subnet.ACMEServicios.id
   private_ips = ["172.16.1.6"]
   security_groups = [aws_security_group.proxyrev_acme_sg.id]
+  source_dest_check = false
 }
 
 
@@ -372,11 +373,13 @@ resource "aws_network_interface" "multiserver_nic1" {
   subnet_id = aws_subnet.ACMEPublica.id
   private_ips = ["172.16.0.7"]
   security_groups = [aws_security_group.multiserver_sg.id]
+  source_dest_check = false
 }
 resource "aws_network_interface" "multiserver_nic2" {
   subnet_id = aws_subnet.ACMEInterna.id
   private_ips = ["172.16.4.7"]
   security_groups = [aws_security_group.multiserver_sg.id]
+  source_dest_check = false
 }
 
 
@@ -452,6 +455,16 @@ resource "aws_instance" "ec2_proxy_rev"{
     network_interface_id = aws_network_interface.proxy_rev_nic2.id
     
   }
+
+  
+  user_data = <<-EOF
+                #!/bin/bash
+                sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+                sudo yum update -y
+                sudo amazon-linux-extras install nginx1 -y
+                EOF
+
+
   tags = {
     Name = "ProxyRev"
   }
@@ -474,6 +487,15 @@ resource "aws_instance" "ec2_multiserver"{
     network_interface_id = aws_network_interface.multiserver_nic2.id
     
   }
+
+  user_data = <<-EOF
+                #!/bin/bash
+                sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+                sudo apt update -y
+                sudo apt install asterisk, wireguard, squid -y
+                EOF
+
+
   tags = {
     Name = "Multiserver"
   }
@@ -485,6 +507,14 @@ resource "aws_instance" "ec2_prod01"{
   instance_type = "t2.micro"
   availability_zone = "us-east-1a"
   key_name = "key-acme"
+
+
+  user_data = <<-EOF
+                #!/bin/bash
+                sudo yum update -y
+                sudo yum install httpd -y
+                EOF
+
 
   network_interface {
     device_index = 0
