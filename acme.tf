@@ -426,3 +426,96 @@ resource "aws_eip" "proxyrev_eip"{
   depends_on =  aws_internet_gateway.gw_acme
 
 }
+
+
+### Instancias
+# Proxy Reverso
+resource "aws_instance" "ec2_proxy_rev"{
+  ami = "ami-0ed9277fb7eb570c9"
+  instance_type = "t2.micro"
+  availability_zone = "us-east-1a"
+  key_name = "key-acme"
+
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.proxy_rev_nic1.id
+
+  }
+  network_interface {
+    device_index = 1
+    network_interface_id = aws_network_interface.proxy_rev_nic2.id
+    
+  }
+}
+
+# Multiserver
+resource "aws_instance" "ec2_multiserver"{
+  ami = "ami-083654bd07b5da81d"
+  instance_type = "t2.micro"
+  availability_zone = "us-east-1a"
+  key_name = "key-acme"
+
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.multiserver_nic1.id
+
+  }
+  network_interface {
+    device_index = 1
+    network_interface_id = aws_network_interface.multiserver_nic2.id
+    
+  }
+}
+
+# Prod01
+resource "aws_instance" "ec2_prod01"{
+  ami = "ami-0ed9277fb7eb570c9"
+  instance_type = "t2.micro"
+  availability_zone = "us-east-1a"
+  key_name = "key-acme"
+
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.prod01_nic1.id
+
+  }
+  network_interface {
+    device_index = 1
+    network_interface_id = aws_network_interface.prod01_nic2.id
+    
+  }
+}
+
+# Prod02
+resource "aws_instance" "ec2_prod02"{
+  ami = "ami-0ed9277fb7eb570c9"
+  instance_type = "t2.micro"
+  availability_zone = "us-east-1a"
+  key_name = "key-acme"
+
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.prod02_nic1.id
+
+  }
+  network_interface {
+    device_index = 1
+    network_interface_id = aws_network_interface.prod02_nic2.id
+    
+  }
+}
+
+
+# Db01
+resource "aws_instance" "ec2_db01"{
+  ami = "ami-0ed9277fb7eb570c9"
+  instance_type = "t2.micro"
+  availability_zone = "us-east-1a"
+  key_name = "key-acme"
+
+  network_interface {
+    device_index = 0
+    network_interface_id = aws_network_interface.db01_nic1.id
+
+  }
+}
