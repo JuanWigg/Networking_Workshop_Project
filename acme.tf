@@ -19,25 +19,25 @@ resource "aws_vpc" "vpc-acme"{
 resource "aws_subnet" "ACMEPublica" {
     vpc_id = aws_vpc.vpc-acme.id
     cidr_block = "172.16.0.0/28"
-
+    availability_zone = "us-east-1a"
     tags = {
         Name = "ACMEPublica"
     }
 }
 
-resource "aws_subnet" "ACMEEmpleados" {
+resource "aws_subnet" "ACMEInterna" {
     vpc_id = aws_vpc.vpc-acme.id
     cidr_block = "172.16.4.0/22"
-
+    availability_zone = "us-east-1a"
     tags = {
-        Name = "ACMEEmpleados"
+        Name = "ACMEInterna"
     }
 }
 
 resource "aws_subnet" "ACMEServicios" {
     vpc_id = aws_vpc.vpc-acme.id
     cidr_block = "172.16.1.0/24"
-
+    availability_zone = "us-east-1a"
     tags = {
         Name = "ACMEServicios"
     }
@@ -61,7 +61,7 @@ resource "aws_default_route_table" "tablaMainAcme" {
 
     route{
       cidr_block = "10.0.0.0/16"
-      gateway_id = 
+      gateway_id = aws_network_interface.multiserver_nic1
   }
 
   route{
@@ -78,19 +78,25 @@ resource "aws_default_route_table" "tablaMainAcme" {
 resource "aws_route_table" "tablaServiciosAcme" {
     route{
         cidr_block = "0.0.0.0/0"
-        gateway_id = 
+        gateway_id = aws_network_interface.proxy_rev_nic2
     }
+    tags = {
+    Name = "ServiciosACME"
+  }
 }
 
-resource "aws_route_table" "tablaEmpleadosAcme" {
+resource "aws_route_table" "tablaInternaAcme" {
     route{
         cidr_block = "0.0.0.0/0"
-        gateway_id = 
+        gateway_id = aws_network_interface.multiserver_nic2.id
     }
     route{
         cidr_block = "10.0.0.0/16"
-        gateway_id = 
+        gateway_id = aws_network_interface.multiserver_nic2.id
     }
+    tags = {
+    Name = "InternaACME"
+  }
 }
 
 ## Asociaciones
@@ -104,19 +110,10 @@ resource "aws_route_table_association" "tablaServiciosAsociation" {
   route_table_id = aws_route_table.tablaServiciosAcme.id
 }
 
-resource "aws_route_table_association" "tablaEmpleadosAsociation" {
+resource "aws_route_table_association" "tablaInternaAsociation" {
   subnet_id      = aws_subnet.ACMEPublica.id
-  route_table_id = aws_route_table.tablaEmpleadosAcme.id
+  route_table_id = aws_route_table.tablaInternaAcme.id
 }
-
-
-
-
-# Instancias
-## Proxy Reverso
-
-
-
 
 ### Security Groups
 ## Proxy Reverso
@@ -345,4 +342,87 @@ resource "aws_security_group" "db_sg" {
   tags = {
     Name = "DB Firewall"
   }
+}
+
+
+
+
+### Interfaces de Red
+## Proxy Reverso
+resource "aws_network_interface" "proxy_rev_nic1" {
+  subnet_id = aws_subnet.ACMEPublica.id
+  private_ips = ["172.16.0.6"]
+  security_groups = [aws_security_group.proxyrev_acme_sg.id]
+}
+resource "aws_network_interface" "proxy_rev_nic2" {
+  subnet_id = aws_subnet.ACMEServicios.id
+  private_ips = ["172.16.1.6"]
+  security_groups = [aws_security_group.proxyrev_acme_sg.id]
+}
+
+
+## Multiserver
+resource "aws_network_interface" "multiserver_nic1" {
+  subnet_id = aws_subnet.ACMEPublica.id
+  private_ips = ["172.16.0.7"]
+  security_groups = [aws_security_group.multiserver_sg.id]
+}
+resource "aws_network_interface" "multiserver_nic2" {
+  subnet_id = aws_subnet.ACMEInterna.id
+  private_ips = ["172.16.4.7"]
+  security_groups = [aws_security_group.multiserver_sg.id]
+}
+
+
+## Prod01
+resource "aws_network_interface" "prod01_nic1" {
+  subnet_id = aws_subnet.ACMEServicios.id
+  private_ips = ["172.16.1.10"]
+  security_groups = [aws_security_group.prod_sg.id]
+}
+resource "aws_network_interface" "prod01_nic2" {
+  subnet_id = aws_subnet.ACMEInterna.id
+  private_ips = ["172.16.4.10"]
+  security_groups = [aws_security_group.prod_sg.id]
+}
+
+
+## Prod02
+resource "aws_network_interface" "prod02_nic1" {
+  subnet_id = aws_subnet.ACMEServicios.id
+  private_ips = ["172.16.1.11"]
+  security_groups = [aws_security_group.prod_sg.id]
+}
+resource "aws_network_interface" "prod02_nic2" {
+  subnet_id = aws_subnet.ACMEInterna
+  private_ips = ["172.16.4.11"]
+  security_groups = [aws_security_group.prod_sg.id]
+}
+
+
+## DB01
+resource "aws_network_interface" "db01_nic1" {
+  subnet_id = aws_subnet.ACMEInterna.id
+  private_ips = ["172.16.4.20"]
+  security_groups = [aws_security_group.db_sg.id]
+}
+
+
+
+## Elastic IPs
+#Proxy Reverso
+resource "aws_eip" "proxyrev_eip"{
+  vpc = true
+  network_interface = aws_network_interface.proxy_rev_nic1.id
+  associate_with_private_ip = "172.16.0.6"
+  depends_on = aws_internet_gateway.gw_acme
+}
+
+#Multiserver
+resource "aws_eip" "proxyrev_eip"{
+  vpc = true
+  network_interface = aws_network_interface.multiserver_nic1.id
+  associate_with_private_ip = "172.16.0.7"
+  depends_on =  aws_internet_gateway.gw_acme
+
 }
