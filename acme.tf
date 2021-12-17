@@ -114,38 +114,235 @@ resource "aws_route_table_association" "tablaEmpleadosAsociation" {
 
 # Instancias
 ## Proxy Reverso
-# Interfaz de red
-resource "aws_network_interface" "primaria_proxyrev"{
-  subnet_id   = aws_subnet.ACMEPublica.id
-  private_ips = ["172.16.0.5"]
-  device_index = 0
-  tags = {
-    Name = "publica_network_interface"
-  }
-}
-
-resource "aws_network_interface" "secundaria_proxyrev"{
-  subnet_id   = aws_subnet.ACMEPublica.id
-  private_ips = ["172.16.1.5"]
-  device_index = 1
-  tags = {
-    Name = "servicios_network_interface"
-  }
-}
-
-resource "aws_instance" "ProxyREV"{
-    ami = "ami-0ed9277fb7eb570c9"
-    instance_type = "t2.micro"
-
-
-
-
-}
-
-
 
 
 
 
 ### Security Groups
 ## Proxy Reverso
+resource "aws_security_group" "proxyrev_acme_sg"{
+  name = "ProxyREV Acme"
+  description = "Security Group para el Proxy Reverso de ACME"
+  vpc_id = aws_vpc.vpc-acme.id
+
+  #Reglas de entrada
+  ingress {
+    description = "SSH publico"
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = "0.0.0.0/0"
+  }
+  ingress {
+    description = "HTTPS"
+    from_port = 443
+    to_port = 443
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description = "HTTP"
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description = "ICMPv4"
+    from_port = -1
+    to_port = -1
+    protocol = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  #Reglas de salida
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "ProxyREV Firewall"
+  }
+
+}
+
+
+## Multiserver
+resource "aws_security_group" "multiserver_sg"{
+  #Reglas de entrada
+  ingress {
+    description = "SSH publico"
+    from_port = 22
+    to_port = 22
+    protocol = "tcp"
+    cidr_blocks = "0.0.0.0/0"
+  }
+  ingress {
+    description = "Proxy"
+    from_port = 8080
+    to_port = 8080
+    protocol = "tcp"
+    cidr_blocks = ["10.0.0.0/24"]
+  }
+  ingress {
+    description = "Asterisk"
+    from_port = 10000
+    to_port = 20000
+    protocol = "udp"
+    cidr_blocks = ["10.0.0.0/24"]
+  }
+  ingress {
+    description = "SIP"
+    from_port = 5060
+    to_port = 5060
+    protocol = "udp"
+    cidr_blocks = ["10.0.0.0/24"]
+  }
+  ingress {
+    description = "Wireguard"
+    from_port = 51820
+    to_port = 51820
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    description = "Wireguard"
+    from_port = 51820
+    to_port = 51820
+    protocol = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    description = "ICMPv4"
+    from_port = -1
+    to_port = -1
+    protocol = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  #Reglas de salida
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "Multiserver Firewall"
+  }
+}
+
+
+## Webservers
+resource "aws_security_group" "prod_sg" {
+  name        = "Prod Firewall"
+  description = "Firewall para Webservers"
+  vpc_id      = aws_vpc.vpc-acme.id
+
+
+  #Reglas de entrada
+  ingress {
+    description      = "HTTPS"
+    from_port        = 443
+    to_port          = 443
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description      = "HTTP"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description      = "SSH"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["10.0.0.0/24"]
+  }
+  ingress {
+    description = "ICMPv4"
+    from_port = -1
+    to_port = -1
+    protocol = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Reglas de salida
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "Webservers Firewall"
+  }
+}
+
+
+## DB
+resource "aws_security_group" "db_sg" {
+  name        = "DB Firewall"
+  description = "Firewall para DB"
+  vpc_id      = aws_vpc.vpc-acme.id
+
+
+  #Reglas de entrada
+  ingress {
+    description      = "MYSQL Prod01"
+    from_port        = 3306
+    to_port          = 3306
+    protocol         = "tcp"
+    cidr_blocks      = []
+  }
+  ingress {
+    description      = "MYSQL Prod02"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description      = "SSH"
+    from_port        = 22
+    to_port          = 22
+    protocol         = "tcp"
+    cidr_blocks      = ["10.0.0.0/24"]
+  }
+  ingress {
+    description = "ICMPv4"
+    from_port = -1
+    to_port = -1
+    protocol = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Reglas de salida
+  egress {
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+
+  tags = {
+    Name = "DB Firewall"
+  }
+}
